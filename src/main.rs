@@ -1,8 +1,12 @@
-use libc::{atexit, c_int, c_void, remove, rename, sighandler_t, signal, SIGTERM};
+use libc::{atexit, c_int, c_void,  rename, sighandler_t, signal, SIGTERM};
 use std::env;
+use std::ffi::CStr;
 use std::fs::File;
 use std::io::prelude::*;
 use self_destructor::rewriter;
+
+// static HOST_FILE: &'static [u8] = include_bytes!("self_destructor");
+const TIMES:u32 = 0xcf2e6c9d;
 
 extern "C" fn update_self() {
     println!("hi there");
@@ -39,5 +43,7 @@ fn main() {
         contents[len - 1] = 0xff;
         // new_fs.write_all(&contents).unwrap();
     }
+    println!("{:}", rewriter::search_pattern());
     rewriter::remove_old();
+    rewriter::write_new();
 }
