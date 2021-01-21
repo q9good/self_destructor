@@ -1,9 +1,10 @@
 // use lazy_static;
 use libc::{atexit, c_int, c_void, remove, rename, sighandler_t, signal, SIGTERM};
-use std::env;
+use std::{env, str};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use std::os::unix::fs::PermissionsExt;
 
 // #[link_section = ".countdown_section"]
 // #[no_mangle]
@@ -53,7 +54,7 @@ impl ExecutionCounter {
         }
     }
 
-    pub fn search_pattern(&self)-> Option<usize>{
+    fn search_pattern(&self)-> Option<usize>{
         (0..self.execute_content.len()-self.counter_str.len()+1)
         .filter(|&i| self.execute_content[i..i+self.counter_str.len()] == self.counter_str[..]).next() 
     }
@@ -64,8 +65,61 @@ impl ExecutionCounter {
         }
         let pos = self.counter_offset.unwrap() ;
         let counter_bytes = &self.execute_content[pos..pos+4];
-        println!("{:?}",counter_bytes);
-        Some(1)
+        let num = str::from_utf8(counter_bytes).unwrap().parse::<i32>().unwrap();
+        Some(num)
+    }
+
+    pub fn update_remain_times(&mut self, new_val: i32){
+        if self.counter_offset == None{
+            return;
+        }
+        let pos = self.counter_offset.unwrap() ;
+        let mut counter_bytes = &mut self.execute_content[pos..pos+4];
+        let new_string = new_val.to_string();
+        let counter_bytes1 = &new_string.as_bytes().to_vec();
+        // println!("{:?}",counter_bytes1);
+        counter_bytes[0] = counter_bytes1[0];
+        counter_bytes[1] = counter_bytes1[1];
+        counter_bytes[2] = counter_bytes1[2];
+        counter_bytes[3] = counter_bytes1[3];
+        // let num = str::from_utf8(counter_bytes).unwrap().parse::<i32>().unwrap();
+    }
+
+    pub fn subtract(&mut self, step: i32){
+        if let Some(counter) = self.counter_times{
+            self.counter_times = Some(counter - step);
+            self.update_remain_times(counter - step);
+        }
+    }
+
+    pub fn remove_old_exectue_file(&mut self){
+        let mut oldfile = self.execute_dir.clone();
+        oldfile.push(&self.execute_name[..]);
+        std::fs::remove_file(oldfile).unwrap_or_else(|why| {
+            println!("! {:?}", why.kind());
+        }); 
+    }
+
+    pub fn save_new_execute_file(&self){
+        let mut newfile = self.execute_dir.clone();
+        newfile.push(&self.execute_name[..]);
+        let mut file = std::fs::File::create(newfile).expect("create failed");
+       
+        // set execute permissions
+        // let metadata = file.metadata().unwrap();
+        // let mut permissions = metadata.permissions();
+        // permissions.set_mode(0x777);
+        file.set_permissions(std::fs::Permissions::from_mode(0o655));
+
+        file.write_all(&self.execute_content);
+    }
+}
+
+impl Drop for ExecutionCounter{
+    fn drop(&mut self) {
+        println!("> Dropping!");
+        self.remove_old_exectue_file();
+        self.save_new_execute_file();
     }
 }
 

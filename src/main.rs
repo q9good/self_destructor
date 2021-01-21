@@ -49,4 +49,8 @@ fn main() {
     // rewriter::write_new();
     let mut counter = ExecutionCounter::new(); 
     counter.init();
+    println!("{:?}", counter.counter_times);
+    counter.subtract(1);
+    let new = counter.parse_remain_times();
+    println!("{:?}", new);
 }
