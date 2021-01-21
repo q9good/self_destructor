@@ -3,7 +3,7 @@ use std::env;
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::prelude::*;
-use self_destructor::rewriter::*;
+use self_destructor::execute_counter::*;
 use std::path::{Path, PathBuf};
 
 // static HOST_FILE: &'static [u8] = include_bytes!("self_destructor");

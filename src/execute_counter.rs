@@ -3,7 +3,8 @@ use libc::{atexit, c_int, c_void, remove, rename, sighandler_t, signal, SIGTERM}
 use std::{env, str};
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path:: PathBuf;
+#[cfg(target_os = "linux")]
 use std::os::unix::fs::PermissionsExt;
 
 // #[link_section = ".countdown_section"]
@@ -11,7 +12,9 @@ use std::os::unix::fs::PermissionsExt;
 // pub static VAR1: u32 = 100;
 // pub static DISK_ID: &'static str = "123456789";
 
-const REMEAIN_TIMES: &'static [u8] = b"Self downcounter remain times:9999";
+#[used]
+#[link_section = ".custom_data"]
+static REMEAIN_TIMES: &'static [u8] = b"Self downcounter remain times:9999";
 pub struct ExecutionCounter{
     pub execute_name:String,
     pub execute_dir:PathBuf,
@@ -105,11 +108,9 @@ impl ExecutionCounter {
         newfile.push(&self.execute_name[..]);
         let mut file = std::fs::File::create(newfile).expect("create failed");
        
-        // set execute permissions
-        // let metadata = file.metadata().unwrap();
-        // let mut permissions = metadata.permissions();
-        // permissions.set_mode(0x777);
-        file.set_permissions(std::fs::Permissions::from_mode(0o655));
+        if cfg!(target_os = "linux"){
+            file.set_permissions(std::fs::Permissions::from_mode(0o755));
+        }
 
         file.write_all(&self.execute_content);
     }
@@ -121,56 +122,4 @@ impl Drop for ExecutionCounter{
         self.remove_old_exectue_file();
         self.save_new_execute_file();
     }
-}
-
-lazy_static! {
-    static ref ENV_PARAM: Vec<String> = env::args().collect();
-    static ref OLD_FILE_execute_contentS: Vec<u8> = {
-        let mut execute_contents = Vec::with_capacity(0x100000 * 20);
-        let mut fs = File::open(&ENV_PARAM[0]).unwrap();
-        fs.read_to_end(&mut execute_contents).unwrap();
-        execute_contents
-    };
-}
-
-pub fn display_old_file()
-{
-    println!("{:?}", *OLD_FILE_execute_contentS);
-}
-
-pub fn get_old_file_length()->u32{
-    OLD_FILE_execute_contentS.len() as u32
-}
-
-pub fn remove_old()->std::io::Result<()>{
-    let mut oldfile =env::current_dir()?;
-    oldfile.push(&ENV_PARAM[0]);
-    println!("{:?}", oldfile);
-    // unsafe{libc::remove(ENV_PARAM[0].as_ptr()  as *const i8);}
-    // unsafe{libc::remove(del.as_ptr()  as *const i8);}
-    std::fs::remove_file(oldfile).unwrap_or_else(|why| {
-        println!("! {:?}", why.kind());
-    });
-
-    Ok(())
-}
-
-pub fn write_new(){
-   let mut newfile = std::env::current_dir().expect(" ");
-    newfile.push(&ENV_PARAM[0]); 
-    let mut file = std::fs::File::create(newfile).expect("create failed");
-    let mut execute_content = OLD_FILE_execute_contentS.clone();
-    // execute_content[0] = 0xff;
-    file.write_all(&execute_content);
-}
-
-pub fn search_pattern()->usize{
-    let pattern = REMEAIN_TIMES.to_vec();
-    let ret = find3(&OLD_FILE_execute_contentS, &pattern).unwrap();
-    ret
-}
-
-fn find3(haystack: &Vec<u8>, needle: &Vec<u8>) -> Option<usize> {
-    (0..haystack.len()-needle.len()+1)
-        .filter(|&i| haystack[i..i+needle.len()] == needle[..]).next()
 }
