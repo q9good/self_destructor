@@ -176,15 +176,17 @@ impl ExecutionCounter {
 
             let idx = self.execute_name.rfind('\\').unwrap();
 
-            let cmd = format!(
+            let _cmd = format!(
                 "ping localhost -n 1 > nul & del {0} & rename {1} {2}",
                 oldfile.to_str().unwrap(),
                 back_file.to_str().unwrap(),
                 &self.execute_name[idx + 1..]
             );
 
+            let wind_cmd = r#"&_cmd"#;
+
             Command::new("cmd")
-                .args(&["/C", &cmd])
+                .args(&["/C", wind_cmd])
                 // .creation_flags(0x08000000)
                 .spawn()
                 .expect("failed to delete old executable");
