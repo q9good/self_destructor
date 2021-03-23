@@ -1,1 +1,1 @@
-# self_destructor
+# A rust self delete/modify program
